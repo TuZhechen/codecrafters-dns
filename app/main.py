@@ -30,7 +30,7 @@ def main():
             # labels = [struct.pack('B', len(label)) + label.encode() for label in qname.split('.')]
             # print(labels)  # Debugging line
             # name = b''.join(labels) + b'\x00'
-            name = b'\x03www\x06google\x03com\x00'
+            name = b'\x0ccodecrafters\x02io\x00'
             qtype = struct.pack("!H", 1)
             qclass = struct.pack("!H", 1)
             question = name + qtype + qclass
