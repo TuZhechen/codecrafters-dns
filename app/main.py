@@ -1,6 +1,16 @@
 import socket
 import struct
 
+def parse_name(buf, offset):
+    labeks = []
+    while True:
+        length = buf[offset]
+        if length == 0:
+            break
+        labels.append(buf[offset + 1: offset + 1 + length].decode)
+        offset += 1 + length
+    return ".".join(labels), offset
+
 def main():
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind(("127.0.0.1", 2053))
@@ -12,8 +22,12 @@ def main():
             # Unpack the DNS query header
             id, flags, qdcount, ancount, nscount, arcount = struct.unpack("!HHHHHH", buf[:12])
 
+            # Parse the question section
+            qname, offset = parse_name(buf, 12)
+            qtype, qclass = struct.unpack("!2H", buf[offset:offset + 4])
+
             # Add the question section
-            name = b'\x0ccodecrafters\x02io\x00'
+            name = b''.join(struct.pack("B", len(label)) + label.encode() for label in qname.split(".")) + b'\x00'
             qtype = struct.pack("!H", 1)
             qclass = struct.pack("!H", 1)
             question = name + qtype + qclass
