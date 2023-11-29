@@ -1,15 +1,15 @@
 import socket
 import struct
 
-def parse_name(buf, offset):
-    labels = []
-    while True:
-        length = buf[offset]
-        if length == 0:
-            break
-        labels.append(buf[offset + 1: offset + 1 + length].decode)
-        offset += 1 + length
-    return ".".join(labels), offset
+# def parse_name(buf, offset):
+#     labels = []
+#     while True:
+#         length = buf[offset]
+#         if length == 0:
+#             break
+#         labels.append(buf[offset + 1: offset + 1 + length].decode)
+#         offset += 1 + length
+#     return ".".join(labels), offset
 
 def main():
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -23,13 +23,14 @@ def main():
             id, flags, qdcount, ancount, nscount, arcount = struct.unpack("!HHHHHH", buf[:12])
 
             # Parse the question section
-            qname, offset = parse_name(buf, 12)
-            qtype, qclass = struct.unpack("!2H", buf[offset:offset + 4])
+            # qname, offset = parse_name(buf, 12)
+            # qtype, qclass = struct.unpack("!2H", buf[offset:offset + 4])
 
             # Add the question section
-            labels = [struct.pack('B', len(label)) + label.encode() for label in qname.split('.')]
-            print(labels)  # Debugging line
-            name = b''.join(labels) + b'\x00'
+            # labels = [struct.pack('B', len(label)) + label.encode() for label in qname.split('.')]
+            # print(labels)  # Debugging line
+            # name = b''.join(labels) + b'\x00'
+            name = b'\x03www\x06google\x03com\x00'
             qtype = struct.pack("!H", 1)
             qclass = struct.pack("!H", 1)
             question = name + qtype + qclass
