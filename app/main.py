@@ -19,7 +19,7 @@ def main():
             question = name + qtype + qclass
 
             # Create a DNS response
-            response = struct.pack('!6H', id, 0x8180, qdcount, 1, 0, 0) + buf[12:] + buf[12:-4]
+            response = struct.pack('!6H', id, 0x8180, qdcount, 1, 0, 0)
             response += question
             response += name
             response += struct.pack('!2H', 1, 0X0001) # TYPE and CLASS
