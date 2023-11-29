@@ -23,9 +23,9 @@ def main():
             response += question
             response += name
             response += struct.pack('!2H', 1, 0X0001) # TYPE and CLASS
-            response += struct.pack('!I', 3600) # TTL
+            response += struct.pack('!I', 60) # TTL
             response += struct.pack('!H', 4) # RDLENGTH
-            response += socket.inet_aton("1.2.3.4") # RDATA
+            response += socket.inet_aton("8.8.8.8") # RDATA
 
             #Send the DNS response
             udp_socket.sendto(response, source)
