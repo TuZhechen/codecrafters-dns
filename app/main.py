@@ -2,7 +2,7 @@ import socket
 import struct
 
 def parse_name(buf, offset):
-    labeks = []
+    labels = []
     while True:
         length = buf[offset]
         if length == 0:
