@@ -27,7 +27,7 @@ def main():
             qtype, qclass = struct.unpack("!2H", buf[offset:offset + 4])
 
             # Add the question section
-            name = b''.join(struct.pack("B", len(label)) + label.encode() for label in qname.split(".")) + b'\x00'
+            name = b''.join([struct.pack("B", len(label)) + label.encode() for label in qname.split(".")]) + b'\x00'
             qtype = struct.pack("!H", 1)
             qclass = struct.pack("!H", 1)
             question = name + qtype + qclass
