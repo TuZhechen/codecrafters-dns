@@ -1,4 +1,9 @@
-from app.dns import Header, Question, Answer, Message
+import sys
+import os
+# Add the current directory to Python path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from dns import Header, Question, Answer, Message
 from typing import List
 import socket
 import traceback
