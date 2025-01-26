@@ -108,13 +108,17 @@ def main():
     
     while True:
         try:
+            print("Waiting for a packet...")
             buf, source = udp_socket.recvfrom(512)
+            print(f"Received packet from {source}")
             
             # Parse the header
             header = DNSHeader.from_bytes(buf)
+            print(f"Parsed Header: {header}")
             
             # Parse question (starting after header)
             question, _ = DNSQuestion.from_bytes(buf, 12)
+            print(f"Parsed Question: {question}")
             
             # Create response message
             response_msg = DNSMessage.create_response(header.id, question)
@@ -126,6 +130,7 @@ def main():
             
             # Convert to bytes and send
             udp_socket.sendto(response_msg.to_bytes(), source)
+            print("Response sent")
             
         except Exception as e:
             print(f"Error receiving data: {e}")
