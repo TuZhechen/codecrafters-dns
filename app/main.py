@@ -119,6 +119,11 @@ def main():
             # Create response message
             response_msg = DNSMessage.create_response(header.id, question)
             
+            # Debug: Print the response message details
+            print("Response Header:", response_msg.header)
+            print("Response Question:", response_msg.questions)
+            print("Response Answer:", response_msg.answers)
+            
             # Convert to bytes and send
             udp_socket.sendto(response_msg.to_bytes(), source)
             
