@@ -9,5 +9,3 @@ debug: true
 #
 # Available versions: python-3.11
 language_pack: python-3.11
-
-entry_point: "python -m app.main"
