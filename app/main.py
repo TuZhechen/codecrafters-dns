@@ -1,4 +1,4 @@
-from app.dns import Header, Question, Answer, Message
+from app import *
 from typing import List
 import socket
 import traceback
