@@ -1,7 +1,4 @@
-import sys
-import os
-
-from dns import Header, Question, Answer, Message
+from app.dns import Header, Question, Answer, Message
 from typing import List
 import socket
 import traceback
