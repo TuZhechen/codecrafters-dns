@@ -1,4 +1,4 @@
-from app import *
+from app import Header, Question, Answer, Message
 from typing import List
 import socket
 import traceback
