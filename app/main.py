@@ -1,8 +1,7 @@
-from app.dns import Header, Question, Answer, Message
+from .dns import Header, Question, Answer, Message
 from typing import List
 import socket
 import traceback
-import pkgutil
 
 def main():
     HOST = "127.0.0.1"
@@ -64,5 +63,4 @@ def main():
             break
 
 if __name__ == "__main__":
-    print("Modules in app package:", [name for _, name, _ in pkgutil.iter_modules(['app'])])
     main()
