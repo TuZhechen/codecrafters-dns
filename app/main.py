@@ -17,9 +17,18 @@ def main():
             
             # Parse the header
             header = Header.from_bytes(buf)
+            print(f"Received header: {header}")
             
-            # Parse question (starting after header)
-            question, _ = Question.from_bytes(buf, 12)
+            offset = 12
+            
+            # Parse multiple questions (starting after header)
+            questions = []
+            num_questions = header.num_questions
+            while num_questions > 0:
+                question, offset = Question.from_bytes(buf, offset)
+                questions.append(question)
+                num_questions -= 1
+            print(f"Parsed questions: {questions}")
 
             # Prepare response header
             response_header = Header(
@@ -32,27 +41,33 @@ def main():
                 ra = 0,
                 z = 0,
                 rcode = 0 if header.opcode == 0 else 4,
-                num_questions = 1,
-                num_answers = 1,
+                num_questions = len(questions),
+                num_answers = len(questions),
                 num_authorities = 0,
                 num_additionals = 0
             )
+            # print(f"Response header: {response_header}")
 
-            # Compose answer
-            answer = Answer(
-                name = question.encode_name(),
-                type_ = question.type_,
-                class_ = question.class_,
-                ttl = 100,
-                data = socket.inet_aton('8.8.8.8')
-            )
+            # Compose multiple answers
+            answers = []
+            for question in questions:
+                answer = Answer(
+                    name = question.encode_name(),
+                    type_ = question.type_,
+                    class_ = question.class_,
+                    ttl = 100,
+                    data = socket.inet_aton('8.8.8.8')
+                )
+                answers.append(answer)
+            # print(f"Constructed answers: {answers}")
             
             # Create response message
             response_msg = Message(
                 header = response_header,
-                questions = [question],
-                answers = [answer]
+                questions = questions,
+                answers = answers
             )
+            # print(f"Response message: {response_msg}")
                         
             # Convert to bytes and send
             udp_socket.sendto(response_msg.to_bytes(), source)

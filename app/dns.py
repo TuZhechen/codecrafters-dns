@@ -74,17 +74,34 @@ class Question:
     
     @staticmethod
     def parse_name(buf: bytes, offset: int) -> tuple[bytes, int]:
-        '''parse domain name from DNS query'''
+        '''Parse domain name from DNS query, handling both compressed and uncompressed names'''
         labels = []
-
+        
         while True:
             length = buf[offset]
+            
+            # Handle compression (first 2 bits are 11)
+            if length & 0xC0 == 0xC0:
+                # Extract pointer from 14 bits (clear first 2 bits and combine with next byte)
+                pointer = ((length & 0x3F) << 8) | buf[offset + 1]
+                next_offset = offset + 2
+                # Recursively parse the name at the pointer position
+                pointed_name, _ = Question.parse_name(buf, pointer)
+                if labels:
+                    return b'.'.join(labels) + b'.' + pointed_name, next_offset
+                return pointed_name, next_offset
+                
+            # End of name
             if length == 0:
                 offset += 1  # Move past the 0 length byte
                 break
-            labels.append(buf[offset + 1:offset + 1 + length].decode('utf-8'))
+                
+            # Regular uncompressed label
+            label = buf[offset + 1:offset + 1 + length]
+            labels.append(label)
             offset += 1 + length
-        return b'.'.join(label.encode('utf-8') for label in labels), offset
+        
+        return b'.'.join(labels), offset
 
     def encode_name(self) -> bytes:
         '''Encode domain name for DNS message'''
