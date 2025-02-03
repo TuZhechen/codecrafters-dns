@@ -5,14 +5,14 @@ import struct
 @dataclass
 class Header:
     id: int
-    qr: int
-    opcode: int
-    aa: int
-    tc: int
-    rd: int
-    ra: int
-    z: int
-    rcode: int
+    qr: int     # Query: 0 / Response: 1
+    opcode: int # Standard query: 0 / otherwise: 1
+    aa: int     # Authoritative Answer (1 if authoritative)
+    tc: int     # Truncated: 1 / Not truncated: 0
+    rd: int     # Recursion Desired: 1 / otherwise: 0
+    ra: int     # Recursion Available: 1 / otherwise: 0
+    z: int      # Reserved for future use
+    rcode: int  # Response code (0 for no error)
     num_questions: int
     num_answers: int
     num_authorities: int
@@ -116,6 +116,14 @@ class Answer:
     ttl: int
     data: bytes
     
+    @classmethod
+    def from_bytes(cls, buf: bytes, offset: int) -> tuple['Answer', int]:
+        '''Parse answer from DNS response'''
+        name, offset = Question.parse_name(buf, offset)
+        type_, class_, ttl, data_len = struct.unpack("!2HIH", buf[offset:offset + 10])
+        data = buf[offset + 10:offset + 10 + data_len]
+        return cls(name=name, type_=type_, class_=class_, ttl=ttl, data=data), offset + 10 + data_len
+
     def to_bytes(self) -> bytes:
         return (
             self.name +
@@ -132,4 +140,21 @@ class Message:
     answers: List[Answer]
    
     def to_bytes(self) -> bytes:
-        return self.header.to_bytes() + b''.join(q.to_bytes() for q in self.questions) + b''.join(a.to_bytes() for a in self.answers) 
+        return self.header.to_bytes() + b''.join(q.to_bytes() for q in self.questions) + b''.join(a.to_bytes() for a in self.answers)
+    
+    @classmethod
+    def from_bytes(cls, data: bytes) -> 'Message':
+        header = Header.from_bytes(data)
+        offset = 12
+        
+        questions = []
+        for _ in range(header.num_questions):
+            question, offset = Question.from_bytes(data, offset)
+            questions.append(question)
+            
+        answers = []
+        for _ in range(header.num_answers):
+            answer, offset = Answer.from_bytes(data, offset)
+            answers.append(answer)
+            
+        return cls(header=header, questions=questions, answers=answers)
