@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from typing import List
+from collections import OrderedDict
+from time import time
 import struct
-
+        
 @dataclass
 class Header:
     id: int
@@ -158,3 +160,41 @@ class Message:
             answers.append(answer)
             
         return cls(header=header, questions=questions, answers=answers)
+
+class DNSCache:
+    def __init__(self, capacity: int = 1000):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key: str) -> Answer:
+        if key not in self.cache:
+            self.misses += 1
+            return None
+        
+        answer = self.cache[key]
+        self.cache.move_to_end(key)
+        self.hits += 1
+        return answer
+        
+    def put(self, key: tuple, answer: Answer):
+        if len(self.cache) >= self.capacity:
+            self.cache.popitem(last=False)
+            
+        self.cache[key] = answer
+        
+    def clear(self):
+        self.cache.clear()
+        self.hits = 0
+        self.misses = 0
+        
+    def stats(self) -> dict:
+        return {
+            "hits": self.hits,
+            "misses": self.misses,
+            "hit_rate": self.hits / (self.hits + self.misses) if self.hits + self.misses > 0 else 0,
+            "cache_size": len(self.cache),
+            "cache_capacity": self.capacity
+        }
+        

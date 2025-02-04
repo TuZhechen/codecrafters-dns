@@ -1,4 +1,4 @@
-from app.dns import Header, Question, Answer, Message
+from app.dns import Header, Question, Answer, Message, DNSCache
 from typing import List
 import socket
 import traceback
@@ -6,6 +6,7 @@ import argparse
 import sys
 import asyncio
 
+dns_cache = DNSCache()
 async def handle_query(data: bytes, client_addr: tuple[str, int], server_socket: socket.socket, resolver_addr=None) -> None:
     try:
         # Parse the header
@@ -18,14 +19,21 @@ async def handle_query(data: bytes, client_addr: tuple[str, int], server_socket:
             question, offset = Question.from_bytes(data, offset)
             questions.append(question)
         
+        resolver_socket = None
         answers = []
         if resolver_addr:
             resolver_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             for question in questions:
-                answer = await forward_query(resolver_socket, resolver_addr, question)
-                if answer:
-                    answer.name = question.encode_name()
-                answers.append(answer)
+                cache_key = (question.name, question.type_, question.class_)
+                cache_answer = dns_cache.get(cache_key)
+                if cache_answer:
+                    answers.append(cache_answer)
+                else:
+                    answer = await forward_query(resolver_socket, resolver_addr, question)
+                    if answer:
+                        answer.name = question.encode_name()
+                        answers.append(answer)
+                        dns_cache.put(cache_key, answer)
         else:
             for question in questions:
                 answer = Answer(
@@ -61,6 +69,10 @@ async def handle_query(data: bytes, client_addr: tuple[str, int], server_socket:
     except Exception as e:
         print(f"Error handling query: {e}")
         print(f"Stack trace:", traceback.format_exc())
+
+    finally:
+        if resolver_socket:
+            resolver_socket.close()
 
 def forward_query(resolver_socket: socket.socket, resolver_addr: tuple[str, int], question: Question) -> Answer:
     # Create single-question query
@@ -102,12 +114,7 @@ def main():
         if args.resolver:
             resolver_ip, resolver_port = args.resolver.split(':')
             resolver_addr = (resolver_ip, int(resolver_port))
-
-    # Create resolver socket if needed
-    resolver_socket = None
-    if resolver_addr:
-        resolver_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    
+   
     try:
         while True:
             buf, source = udp_socket.recvfrom(BUFFER_SIZE)
@@ -116,8 +123,6 @@ def main():
         print("Shutting down...")
     finally:
         udp_socket.close()
-        if resolver_socket:
-            resolver_socket.close()
 
 if __name__ == "__main__":
     main()
