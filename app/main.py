@@ -4,8 +4,65 @@ import socket
 import traceback
 import argparse
 import sys
+import asyncio
 
-def forward_query(resolver_sock: socket.socket, resolver_addr: tuple, question: Question) -> Answer:
+async def handle_query(data: bytes, client_addr: tuple[str, int], server_socket: socket.socket, resolver_addr=None) -> None:
+    try:
+        # Parse the header
+        header = Header.from_bytes(data)
+
+        # Parse multiple questions (starting after header)
+        questions = []
+        offset = 12
+        for _ in range(header.num_questions):
+            question, offset = Question.from_bytes(data, offset)
+            questions.append(question)
+        
+        answers = []
+        if resolver_addr:
+            resolver_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            for question in questions:
+                answer = await forward_query(resolver_socket, resolver_addr, question)
+                if answer:
+                    answer.name = question.encode_name()
+                answers.append(answer)
+        else:
+            for question in questions:
+                answer = Answer(
+                    name=question.encode_name(),
+                    type_=question.type_,
+                    class_=question.class_,
+                    ttl=60,
+                    data=socket.inet_aton('8.8.8.8')
+                )
+                answers.append(answer)
+        
+        response_msg = Message(
+            header=Header(
+                id=header.id,
+                qr=1,
+                opcode=header.opcode,
+                aa=0,
+                tc=0,
+                rd=header.rd,
+                ra=1 if resolver_addr else 0,
+                z=0,
+                rcode=0 if header.opcode == 0 else 4,
+                num_questions=len(questions),
+                num_answers=len(answers),
+                num_authorities=0,
+                num_additionals=0
+            ),
+            questions=questions,
+            answers=answers
+        )
+        await server_socket.sendto(response_msg.to_bytes(), client_addr)
+
+    except Exception as e:
+        print(f"Error handling query: {e}")
+        print(f"Stack trace:", traceback.format_exc())
+
+def forward_query(resolver_socket: socket.socket, resolver_addr: tuple[str, int], question: Question) -> Answer:
     # Create single-question query
     query = Message(
         header=Header(
@@ -21,8 +78,8 @@ def forward_query(resolver_sock: socket.socket, resolver_addr: tuple, question: 
     )
     
     # Forward to resolver
-    resolver_sock.sendto(query.to_bytes(), resolver_addr)
-    response_data, _ = resolver_sock.recvfrom(512)
+    resolver_socket.sendto(query.to_bytes(), resolver_addr)
+    response_data, _ = resolver_socket.recvfrom(512)
     
     # Parse response
     response = Message.from_bytes(response_data)
@@ -40,7 +97,7 @@ def main():
     resolver_addr = None
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser()
-        parser.add_argument('--resolver', help='DNS resolver address (ip:port)')
+        parser.add_argument('--resolver', help='DNS resolver address <ip:port>')
         args = parser.parse_args()
         if args.resolver:
             resolver_ip, resolver_port = args.resolver.split(':')
@@ -51,71 +108,16 @@ def main():
     if resolver_addr:
         resolver_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
-    while True:
-        try:
+    try:
+        while True:
             buf, source = udp_socket.recvfrom(BUFFER_SIZE)
-            
-            # Parse the header
-            header = Header.from_bytes(buf)
-            
-            offset = 12
-
-            # Parse multiple questions (starting after header)
-            questions = []
-            num_questions = header.num_questions
-            while num_questions > 0:
-                question, offset = Question.from_bytes(buf, offset)
-                questions.append(question)
-                num_questions -= 1
-
-            answers = []
-            
-            for question in questions:
-                if resolver_addr and resolver_socket:
-                    answer = forward_query(resolver_socket, resolver_addr, question)
-                    if answer:
-                        answer.name = question.encode_name()
-                else:
-                    answer = Answer(
-                        name=question.encode_name(),
-                        type_=question.type_,
-                        class_=question.class_,
-                        ttl=60,
-                        data=socket.inet_aton('8.8.8.8')
-                    )
-                answers.append(answer)
-
-            # Create response message
-            response_msg = Message(
-                header=Header(
-                    id=header.id,
-                    qr=1,
-                    opcode=header.opcode,
-                    aa=0,
-                    tc=0,
-                    rd=header.rd,
-                    ra=1 if resolver_addr else 0,
-                    z=0,
-                    rcode=0 if header.opcode == 0 else 4,
-                    num_questions=len(questions),
-                    num_answers=len(answers),
-                    num_authorities=0,
-                    num_additionals=0
-                ),
-                questions=questions,
-                answers=answers
-            )
-            
-            udp_socket.sendto(response_msg.to_bytes(), source)
-            
-        except Exception as e:
-            print(f"Error receiving data: {e}")
-            print(f"Stack trace:", traceback.format_exc())
-            break
-
-    if resolver_socket:
-        resolver_socket.close()
-    udp_socket.close()
+            asyncio.create_task(handle_query(buf, source, udp_socket, resolver_addr))
+    except KeyboardInterrupt:
+        print("Shutting down...")
+    finally:
+        udp_socket.close()
+        if resolver_socket:
+            resolver_socket.close()
 
 if __name__ == "__main__":
     main()
